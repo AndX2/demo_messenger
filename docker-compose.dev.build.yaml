@@ -1,0 +1,26 @@
+version: "3.7"
+
+services:
+  # Название контейнера
+  aot_builder:
+    container_name: "aot_msg_builder"
+    # Используем образ
+    image: andx2/aqueduct:4.0.0-b1
+    # Монтируем папку aqueduct приложения в контейнер /app
+    volumes:
+      - ./gate/:/app
+      - ./auth_app/:/auth_app
+    # Переходим в папку проекта - скачиваем зависимости - собираем билд
+    # поскольку папка проекта, фактически смонтирована из хоста, то и
+    # сборка будет помещена в хостовую директорию проекта tst_msg.aot
+    # повышаем права файла сборки до "Исполняемый файл"
+    command: sh -c "
+      (cd /app
+      && pub get
+      && aqueduct build -d /app/
+      && chmod +x tst_msg.aot)
+      && (cd /auth_app
+      && pub get
+      && aqueduct build -d /auth_app/
+      && chmod +x auth_app.aot) 
+      "

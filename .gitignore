@@ -1,0 +1,8 @@
+data_db/
+auth_db/
+certbot/
+rabbitmq/
+*.pem
+*.env
+**/.dart_tool/
+**/.packages

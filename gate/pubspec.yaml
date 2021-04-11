@@ -1,0 +1,32 @@
+name: tst_msg
+description: An empty Aqueduct application.
+version: 0.0.1
+author: stable|kernel <jobs@stablekernel.com>
+
+environment:
+  sdk: ">=2.6.0 <3.0.0"
+
+dependencies:
+  aqueduct: 4.0.0-b1
+
+  dart_amqp: ^0.1.4
+  corsac_jwt: 0.2.2
+  # генератор идентификаторов
+  uuid: 2.2.2
+
+  # контейнер DI
+  get_it: 5.0.3
+  # декларативный кодегенератор для get_it
+  injectable: 1.0.5
+
+dependency_overrides:
+  analyzer: 0.39.17
+
+dev_dependencies:
+  test: ^1.0.0
+  aqueduct_test: ^2.0.0-b1
+
+  # зависимости injectable этапа компиляции
+  # использует пакет build_runner
+  injectable_generator: 1.0.5
+  build_runner: 1.10.0

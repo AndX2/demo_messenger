@@ -1,0 +1,22 @@
+config:
+  target: "wss://dartservice.ru/messenger/ws"
+  socketio:
+    transports: ["websocket"]
+  phases:
+    - duration: 3 # Запуск через 10 секунд (для инициализации)
+      arrivalCount: 1000 # Создаем 1000 "пользователей"
+  # ws:
+  #   # Здесь можно настроить подключение (например заголовки безопасности):
+  #   headers:
+  #     Sec-WebSocket-Protocol: my-protocol
+scenarios:
+  - engine: "ws"
+    flow:
+      # запускаем сценарий в цикле
+      - loop:
+        # отправляем данные
+        - send: "{\"type\": \"ping\"}"
+        # число итераций в цикле
+        count: 500
+      # задержка после окончания (например для записи результатов в лог) 
+      - think: 5

@@ -1,0 +1,153 @@
+# Версия docker-compose, для которой написан и протестирован данный сценарий
+# существенно отличаются мажорные версии 2.х и  3.х, поэтому можно указывать
+# version: "3"
+version: "3.7"
+
+# Описание всех контейнеров, которые нужно запустить
+services:
+  # Первый контейнер. Это и есть NGINX http сервер Наименование "web" выбрано
+  # произвольно и будет использоваться как адрес во внутренней сети docker
+  # и ссылка для других контейнеров
+  web:
+    # Для запуска контейнера необходимо загрузить и запустить именованный
+    # образ "nginx:1.19.0" из регистра по умолчанию (DockerHub)
+    image: nginx:1.19.0
+    # Название контейнера
+    container_name: "nginx_msg"
+    # "Откроем" порт 80 контейнера на порте 8081 хоста. Синтаксис команды:
+    # список строк, начинающихся с "-" с парами номеров портов через ":"
+    # - <порт хоста>:<порт контейнера>
+    #...
+    ports:
+      - 80:80
+      - 443:443
+    # Смонтированные тома файловой системы
+    # - <хост>:<контейнер>
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d/
+      - ./public:/public/
+      # Путь к ключу шифрования протокола Диффи-Хеллмана
+      - ./dhparam:/etc/nginx/dhparam
+      # Директория certbot с полученным SSL сертификатом
+      - ./certbot/conf/:/etc/nginx/ssl/
+      # Директория certbot с файлами подтверждения владения доменом
+      - ./certbot/data:/usr/share/nginx/html/letsencrypt
+    depends_on:
+      - gate_app
+      - authorization_app
+
+  # Контейнер приложения получения/обновления SSL сертификатов
+  certbot:
+    # Образ приложения из DockerHub
+    image: certbot/certbot:v1.5.0
+    # Название контейнера
+    container_name: "certbot_msg"
+    # Команда, выполняемая после запуска контейнера
+    command: certonly --webroot --webroot-path=/usr/share/nginx/html/letsencrypt --email admin@email.com --agree-tos --no-eff-email -d dartservice.ru
+    # Смонтированные тома файловой системы
+    # - <хост>:<контейнер>
+    volumes:
+      # Рабочая директория certbot здесь находятся ключи, сертификаты, сведения
+      # о домене, конфигурация, задания, выполняемые при смене сертификата и пр.
+      - ./certbot/conf/:/etc/letsencrypt
+      # Логи работы certbot
+      - ./certbot/logs/:/var/log/letsencrypt
+      # Файлы подтверждения владения доменом, их необходимо сделать доступными по
+      # http://dartservice.ru/.well-known/acme-challenge/
+      - ./certbot/data:/usr/share/nginx/html/letsencrypt
+
+  # Контейнер с DB
+  data_db:
+    # Загружаемый образ
+    image: postgres:12.3-alpine
+    # Название контейнера
+    container_name: "data_db_msg"
+    # Файл с переменными окружения
+    env_file:
+      - ./env/data_db.env
+    # Монтируем папку для файлов базы данных в контейнер
+    volumes:
+      - ./data_db/:/var/lib/postgresql/data/
+    restart: "no"
+
+  # Контейнер с DB
+  auth_db:
+    # Загружаемый образ
+    image: postgres:12.3-alpine
+    # Название контейнера
+    container_name: "auth_db_msg"
+    # Файл с переменными окружения
+    env_file:
+      - ./env/auth_db.env
+    # Монтируем папку для файлов базы данных в контейнер
+    volumes:
+      - ./auth_db/:/var/lib/postgresql/data/
+    restart: "no"
+
+  # Контейнер приложения шлюза
+  gate_app:
+    # Используем образ с Ubuntu 20_10
+    image: ubuntu:20.10
+    # Название контейнера
+    container_name: "gate_app"
+    # Монтируем в файловую систему контейнера скомпилированную сборку приложения
+    volumes:
+      - ./gate/tst_msg.aot:/app/tst_msg.aot
+    # Файл с переменными конфигурации, которые будут записаны при запуске
+    # ОС в контейнере (можно передать переменные и просто в этом сценарии,
+    # но лучше конфиг запуска поместить в отдельный файл)
+    env_file:
+      - ./env/gate_app.env
+    # Команда запуска приложения внутри контейнера
+    command: sh -c "cd /app && ./tst_msg.aot --port 8082 --isolates 1"
+    # Политика перезапуска при остановке приложения
+    # например при внутренней ошибке
+    restart: "no"
+    depends_on:
+      - data_db
+
+  # Контейнер приложения авторизации
+  auth_app:
+    # Используем образ с Ubuntu 20_10
+    image: ubuntu:20.10
+    # Название контейнера
+    container_name: "authorization_app"
+    # Монтируем в файловую систему контейнера скомпилированную сборку приложения
+    volumes:
+      - ./auth_app/auth_app.aot:/app/auth_app.aot
+    # Файл с переменными конфигурации, которые будут записаны при запуске
+    # ОС в контейнере (можно передать переменные и просто в этом сценарии,
+    # но лучше конфиг запуска поместить в отдельный файл)
+    env_file:
+      - ./env/auth_app.env
+    # Команда запуска приложения внутри контейнера
+    command: sh -c "cd /app && ./auth_app.aot --port 8082 --isolates 1"
+    # Политика перезапуска при остановке приложения
+    # например при внутренней ошибке
+    restart: "no"
+    depends_on:
+      - auth_db
+
+  # # Контейнер брокера сообщений
+  # rabbit:
+  #   # Загружаемый образ
+  #   image: rabbitmq:3.8.11-management-alpine
+  #   # Название контейнера
+  #   container_name: "rabbit_msg"
+  #   # Монтируем папку для файлов базы данных в контейнер
+  #   volumes:
+  #     - ./rabbitmq/:/var/lib/rabbitmq/
+  #   restart: "no"
+
+  # # Контейнер с cache
+  # redis:
+  #   # Загружаемый образ
+  #   image: redis:6.0.9-alpine3.12
+  #   # Название контейнера
+  #   container_name: "redis_cache"
+  #   entrypoint: redis-server /usr/local/etc/redis/redis.conf
+  #   # Монтируем папку для файла конфигурации в контейнер
+  #   volumes:
+  #     - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+  #     - ./redis/data/:/data/
+  #   restart: "no"
