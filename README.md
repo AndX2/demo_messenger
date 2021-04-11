@@ -59,8 +59,8 @@ aqueduct db generate
 
 # Применить файл миграции 
 docker-compose -f docker-compose.migrations.yaml --env-file=./env/data_app.env --compatibility up --abort-on-container-exit
-# Применить файл миграции бд авторизации
 
+# Применить файл миграции бд авторизации
 docker-compose -f docker-compose.migrations_auth.yaml --env-file=./env/auth_app.env --compatibility up --abort-on-container-exit
 
 # Сборка нативных артефактов 
